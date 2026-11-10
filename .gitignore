@@ -1,0 +1,11 @@
+.DS_Store
+.env
+*.local
+bin/
+dist/
+lambda/report/bootstrap
+lambda/report/function.zip
+node_modules/
+cdk.out/
+coverage.out
+account.md
