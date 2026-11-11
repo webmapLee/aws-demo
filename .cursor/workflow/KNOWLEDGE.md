@@ -2,6 +2,47 @@
 
 需求分析和任务规划前先读本文件。新决策追加在最上面。不要删除已经生效的约束；过时决策标成「已替代」并指向新条目。
 
+## 2026-11-11 发布权限
+
+- `go-api-github-deploy` 的策略 `go-api-release` 只允许推送 ECR `go-api`，以及代入本账号四个 CDK bootstrap 角色。网站、数据库和 CloudFront 仍由 `GoApiRelease` 在构建机里更新。
+- `buildspec.yml` 先用 CodeBuild 自己的角色把 Lambda 压缩包上传到 `lambda/<提交号>.zip`，再代入部署角色推送镜像并执行 `cdk deploy GoApiRelease`。镜像标签和压缩包键都是 `IMAGE_TAG`，由 GitHub Actions 传入 `GITHUB_SHA`。
+- 源码桶允许 `357278306946` 和 Lambda 服务读取 `lambda/*`，供发布栈更新 `go-api-report`。本机仍然不要直接 `cdk deploy`。
+
+## 2026-11-11 三个账号的身份
+
+用户确认的对应关系，后续沿用这些称呼：
+
+- `722769295876`：组织管理账号。组织 `o-ffqezcdhwo` 的管理员，SCP `p-grp31vw3` 从这里下发。本项目没有这个账号的凭证，也不登录它。
+- `357278306946`：Builder ID 进入的成员账号，在上面的组织里，带有免费额度。网站、数据库、ECS、CloudFront 都在这里。本机默认凭证是 IAM 用户 `aws-demo`。
+- `235494787236`：用户自己的 root 账号。OIDC、源码桶和 CodeBuild 在这里。本机配置名 `oidc`。
+
+## 2026-11-11 流水线资源用 CLI 创建
+
+- 本机可以调用 IAM、CodeBuild、S3 控制面，但 `aws s3 cp` 和 `cdk deploy` 上传对象到 `ap-southeast-2` 桶时，10 秒内建不起连接。两个账号的 CDK bootstrap 已经成功。
+- 因此不要再原样执行 `cdk deploy GoApiOidc` 或 `GoApiPipeline`。同名资源已存在，上传恢复后直接部署会报 AlreadyExists。
+- 配置名 `oidc` 是 `arn:aws:iam::235494787236:root`。默认凭证仍是 `357278306946` 的 `aws-demo`，不要覆盖。
+- 已存在且不要再建：OIDC 提供方 `token.actions.githubusercontent.com`、角色 `go-api-github-oidc`（策略 `go-api-ci-start`）、角色 `go-api-codebuild`、项目 `go-api-ci`、桶 `go-api-ci-source-235494787236`、角色 `go-api-github-deploy`。这些资源目前不属于 CloudFormation。
+- GitHub Actions 从 GitHub 的网络上传源码包，不依赖本机到 S3 的数据面。
+
+## 2026-11-11 OIDC 改到可登录账号
+
+- 已替代「在 `357278306946` 创建 GitHub OIDC」。该账号被 SCP `p-grp31vw3` 拒绝 OIDC 提供方。
+- OIDC、源码桶和 CodeBuild 建在 `235494787236`。角色名 `go-api-github-oidc`、`go-api-codebuild`，项目名 `go-api-ci`，桶名 `go-api-ci-source-235494787236`。
+- `357278306946` 的 `go-api-github-deploy` 只信任 `arn:aws:iam::235494787236:role/go-api-codebuild`。现有服务仍留在这个账号。
+
+## 2026-11-10 Phase 4 部署受阻
+
+- 账号 `357278306946` 的用户 `aws-demo` 被组织 SCP `p-grp31vw3` 明确拒绝 `iam:GetOpenIDConnectProvider` 和 `iam:ListOpenIDConnectProviders`。GitHub OIDC 提供方因此不能由当前身份创建或查询。
+- 该区域还没有 CDK bootstrap：`/cdk-bootstrap/hnb659fds/version` 不存在，部署角色 `cdk-hnb659fds-deploy-role-357278306946-ap-southeast-2` 也不能代入。
+- `cdk diff GoApiPipeline` 当时只有新增资源，没有改动现有 RDS、ALB、CloudFront 或 WAF。在 SCP 放行前不要部署。
+
+## 2026-11-10 Phase 4 已锁定
+
+- 代码仓库是 `webmapLee/aws-demo`，默认分支 `main`。流水线只用 GitHub OIDC，信任条件限 `repo:webmapLee/aws-demo:ref:refs/heads/main`。
+- CDK 新建流水线资源并发布新版本。现有 RDS、ALB、CloudFront、WAF 不导入 CloudFormation。
+- GitHub Actions 只编排；CodeBuild 项目名 `go-api-ci`，负责测试、前端构建和镜像。部署角色名 `go-api-github-deploy`。
+- 前端检查沿用 `npm run build`。镜像继续推到 ECR `go-api`，架构 `linux/amd64`，标签用提交号。
+
 ## 2026-11-09 Phase 2 已落地
 
 - Phase 2 用 AWS CLI 创建资源，不用 CDK。CDK 仍然留在 Phase 4。

@@ -2,6 +2,8 @@
 .env
 *.local
 bin/
+!infrastructure/bin/
+!infrastructure/bin/**
 dist/
 lambda/report/bootstrap
 lambda/report/function.zip

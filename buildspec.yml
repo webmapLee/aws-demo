@@ -1,0 +1,53 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+  build:
+    commands:
+      - |
+        set -euo pipefail
+        if [ -z "${IMAGE_TAG:-}" ]; then
+          echo "IMAGE_TAG is empty"
+          exit 1
+        fi
+        source_bucket="go-api-ci-source-235494787236"
+        registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+
+        docker run --rm -v "$CODEBUILD_SRC_DIR/services/go-api:/src" -w /src golang:1.27.3 go test ./...
+        docker run --rm -v "$CODEBUILD_SRC_DIR/lambda/report:/src" -w /src golang:1.27.3 go test ./...
+        cd "$CODEBUILD_SRC_DIR/frontend" && npm ci && npm run build
+
+        docker run --rm -v "$CODEBUILD_SRC_DIR/lambda/report:/src" -w /src \
+          -e CGO_ENABLED=0 -e GOOS=linux -e GOARCH=amd64 \
+          golang:1.27.3 go build -ldflags='-s -w' -o bootstrap .
+        zip -j /tmp/go-api-report.zip "$CODEBUILD_SRC_DIR/lambda/report/bootstrap"
+        aws s3 cp /tmp/go-api-report.zip "s3://${source_bucket}/lambda/${IMAGE_TAG}.zip"
+
+        read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN < <(
+          aws sts assume-role \
+            --role-arn "$DEPLOY_ROLE_ARN" \
+            --role-session-name "go-api-${IMAGE_TAG}" \
+            --duration-seconds 3600 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text
+        )
+        export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$registry"
+        docker build --platform linux/amd64 -t "${registry}/${IMAGE_REPO_NAME}:${IMAGE_TAG}" "$CODEBUILD_SRC_DIR/services/go-api"
+        docker push "${registry}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+        digest="$(aws ecr describe-images \
+          --region "$AWS_DEFAULT_REGION" \
+          --repository-name "$IMAGE_REPO_NAME" \
+          --image-ids "imageTag=${IMAGE_TAG}" \
+          --query 'imageDetails[0].imageDigest' \
+          --output text)"
+        echo "image_digest=${digest}"
+
+        cd "$CODEBUILD_SRC_DIR/infrastructure"
+        npm ci
+        npx cdk deploy GoApiRelease --exclusively --require-approval never \
+          --context "imageTag=${IMAGE_TAG}" \
+          --context "reportCodeKey=lambda/${IMAGE_TAG}.zip"
