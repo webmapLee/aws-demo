@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, useCallback, type FormEvent } from 'react'
 import {
   ApiError,
   checkHealth,
@@ -8,6 +8,7 @@ import {
   listUsers,
   updateUser,
 } from './api'
+import Tasks from './Tasks'
 import type { User } from './types'
 
 type Draft = {
@@ -53,6 +54,7 @@ export default function App() {
   const nameInput = useRef<HTMLInputElement>(null)
   const searchId = useId()
   const [panelKey, setPanelKey] = useState(0)
+  const markUnavailable = useCallback(() => setHealth('down'), [])
 
   async function refresh() {
     const [list, status] = await Promise.all([listUsers(), checkHealth()])
@@ -162,7 +164,7 @@ export default function App() {
       <aside className="rail">
         <p className="eyebrow">AWS GO · REGISTRY</p>
         <h1>名册</h1>
-        <p className="rail-copy">登记用户、改正资料、把不再使用的记录从名册上划掉。写入的是本地 PostgreSQL。</p>
+        <p className="rail-copy">登记用户，并把待办交给名册上的某一个人。写入的是本地 PostgreSQL。</p>
         <p className={`status status-${health}`}>
           <span className="status-dot" aria-hidden="true" />
           {health === 'ok' ? '用户服务可用' : health === 'down' ? '用户服务不可用' : '正在检查服务'}
@@ -244,6 +246,12 @@ export default function App() {
             </ul>
           </>
         ) : null}
+
+        <Tasks
+          users={users}
+          usersLoading={loading}
+          onUnavailable={markUnavailable}
+        />
       </main>
 
       {draft ? (
@@ -290,7 +298,7 @@ export default function App() {
         <div className="overlay" role="presentation">
           <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
             <h3 id="delete-title">删除这条记录？</h3>
-            <p>{pendingDelete.name}（{pendingDelete.email}）会从名册中移除，且不能撤销。</p>
+            <p>{pendingDelete.name}（{pendingDelete.email}）会从名册中移除，且不能撤销。如果此人还有待办，需要先改派或删除那些待办。</p>
             <div className="panel-actions">
               <button type="button" onClick={() => setPendingDelete(null)} disabled={deleting}>留下</button>
               <button className="danger solid" type="button" onClick={() => void confirmDelete()} disabled={deleting}>

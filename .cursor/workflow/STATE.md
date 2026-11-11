@@ -1,11 +1,11 @@
 # 工作流状态
 
 - 项目：aws-go
-- 更新时间：2026-11-09
-- 流程位置：第一阶段，Phase 4 规格草案待确认
+- 更新时间：2026-11-11
+- 流程位置：任务代办本地验收通过。Phase 4 仍停在 P4.6，等推送到 main
 - 会话状态：PAUSED
 - 并发上限：3
-- 暂停原因：Phase 4 规格草案已写出，等用户确认后才做执行计划和创建资源
+- 暂停原因：任务代办只在本地验收，没有部署。P4.6 仍等用户要求提交并推送到 main。
 
 ## 完成情况摘要
 
@@ -20,7 +20,7 @@ Phase 1 和 Phase 2 都已验收。Phase 2 用 AWS CLI 部署在 `ap-southeast-2
 | Phase 1 | 已确认并通过 | 本地 Go CRUD、PostgreSQL、Dockerfile、Compose。验收见需求文档第九节 |
 | Phase 2 | 已确认并通过 | AWS CLI 部署 ECR、ECS Fargate、ALB、私有 RDS。2026-11-09 经 ALB 完成用户 CRUD |
 | Phase 3 | 已确认并通过 | 一个 CloudFront 入口：页面走 S3，`/users` 与 `/health` 走现有 ALB，`/report` 走 API Gateway 和 Lambda。WAF 只挂 CloudFront，建在 `us-east-1`。2026-11-09 验收通过 |
-| Phase 4 | 草案待确认 | 见下方「Phase 4 规格」。确认前不创建 CDK、OIDC 或 CodeBuild |
+| Phase 4 | 执行中 | OIDC 和 CodeBuild 在 `235494787236`。部署角色和现有服务在 `357278306946` |
 | Phase 5 | 未确认 | 一个 PR 一个环境，共用 RDS，独立 schema |
 | Phase 6 | 未确认 | Lambda Canary、ECS Blue/Green、告警回滚 |
 
@@ -28,9 +28,9 @@ Phase 1 和 Phase 2 都已验收。Phase 2 用 AWS CLI 部署在 `ap-southeast-2
 
 - 正在跑的任务：无
 - 运行中的子代理：无
-- 最后验证：2026-11-09 在 `https://d1zalq3ci35v3c.cloudfront.net/` 登记 Phase3 Check，改成 Phase3 Updated，再删除。名册回到 1 人。`/health` 为 ok，`/report` 为 `go_health=ok`、`user_count=1`。ALB 直连仍为 ok。
-- 续跑入口：用户确认或修正 Phase 4 规格。确认后才写执行计划和依赖，并把任务改为 `READY`。
-- 待决策：规格里的四项，尤其是 GitHub 仓库所有者和「CDK 接管现有资源」还是「只建流水线」。
+- 最后验证：2026-11-11 任务代办本地通过。`go test -count=1` 覆盖路由；`DATABASE_URL` 指向本机 `localhost:15432` 时 `TestTaskRepositoryCRUD` 通过。前端 `npm run build` 通过。页面完成指定用户、筛选、完成、改派，有待办时删除用户被拒绝。
+- 续跑入口：用户要求提交并推到 `main` 后做 P4.6。待办要上线时，还要给 CloudFront 增加 `/tasks*`，并单独确认。不要在本机执行 `cdk deploy`。
+- 已锁定：仓库 `https://github.com/webmapLee/aws-demo`，默认分支 `main`。GitHub 先代入 `235494787236` 的 `go-api-github-oidc`，CodeBuild 再代入 `357278306946` 的 `go-api-github-deploy`。前端检查用 `npm run build`。CDK 不接管现有数据库、负载均衡、CloudFront 和 WAF。
 
 ## 任务
 
@@ -55,9 +55,21 @@ Phase 1 和 Phase 2 都已验收。Phase 2 用 AWS CLI 部署在 `ap-southeast-2
 | P3.5 | CloudFront 分配 | DONE | P3.3, P3.4 | 开发 | 0 | 默认源是 S3；`/users*` 与 `/health` 到现有 ALB 且不缓存；`/report*` 到 API；浏览器用 HTTPS | `E357T1GJ1G381I` 已 Deployed。页面 200，`/health` 不缓存，`/report` 含 `go_health` |
 | P3.6 | CloudFront 上的 WAF | DONE | P3.5 | 开发 | 0 | `us-east-1` 的 Web ACL `go-api-cloudfront` 只关联该分配；通用规则、SQLi 规则、按 IP 限速；Lambda 上没有 WAF | ACL `6a475e95-8c0a-4e28-b856-54b5b3c336d6` 写在分配 `WebACLId`。脚本查询 403，普通请求 200。Lambda 无此字段 |
 | P3.7 | 经 CloudFront 验收 | DONE | P3.6 | 验证 | 0 | 页面完成一次用户增删改查；`/health` 为 ok；`/report` 含 Go 健康状态；ALB 直连仍可用 | 登记 Phase3 Check，改为 Phase3 Updated 后删除。`/report` 回到 `user_count=1`。原有用户 Yanbin Li 仍在 |
-| P4 | Phase 4 CI/CD | PENDING | P3 | 主控 | 0 | 提交触发构建和 CDK 部署，使用 OIDC | 无 `.github/`、无 `cdk.json` |
+| P4 | Phase 4 CI/CD | PENDING | P4.6 | 主控 | 0 | 提交触发构建和 CDK 部署，使用 OIDC | 仓库 `webmapLee/aws-demo`，分支 `main`，提交 `9343a12` |
+| P4.1 | CDK 流水线栈代码 | DONE | P3 | 开发 | 0 | `infrastructure/` 能 `cdk synth` 出 OIDC、部署角色和 CodeBuild，且不部署 | `npm test` 2 通过，`tsc --noEmit` 与 `cdk synth` 成功。模板含 OIDC、`go-api-github-deploy`、`go-api-ci`。未部署 |
+| P4.2 | CDK 应用发布栈代码 | DONE | P4.1 | 开发 | 0 | synth 引用现有 ECR、ECS、S3、Lambda；模板不包含 RDS、ALB、CloudFront、WAF | `npm test` 4 通过。`GoApiRelease` 引用 `go-api:v1`、前端桶、`go-api-report`，不创建 RDS、ALB、CloudFront、WAF、ECS Service |
+| P4.3 | GitHub Actions 编排 | DONE | P3 | 开发 | 0 | 仅 `main` 推送触发；用 OIDC；只启动 CodeBuild，不另建一条部署 | `.github/workflows/main.yml` 只在 `main` 推送时用 OIDC 启动 `go-api-ci` |
+| P4.4 | 在 357278306946 创建 OIDC | BLOCKED | P4.1 | 开发 | 0 | 原计划在该账号创建 OIDC | 已替代。SCP 拒绝 OIDC 提供方。改由 P4.7、P4.8 承担 |
+| P4.7 | 跨账号流水线代码 | DONE | P4.1, P4.3 | 开发 | 0 | OIDC 与 CodeBuild 模板属于 235494787236；357278306946 只有部署角色，且信任 `go-api-codebuild` | `npm test` 4 通过，`tsc --noEmit` 与 `cdk synth` 成功 |
+| P4.8 | 部署 OIDC 栈到 235494787236 | DONE | P4.7 | 开发 | 0 | `GoApiOidc` 创建 OIDC、`go-api-github-oidc`、`go-api-ci`；重复执行不新建第二套 | 2026-11-11 CLI 创建。OIDC 提供方和 `go-api-github-oidc` 已存在。新建桶 `go-api-ci-source-235494787236`、角色 `go-api-codebuild`、项目 `go-api-ci`。`go-api-github-deploy` 已在 `357278306946` 创建。未进 CloudFormation |
+| P4.5 | 构建、推送镜像并发布版本 | DONE | P4.2, P4.3, P4.8 | 开发 | 0 | CodeBuild 跑 Go 测试和 `npm run build`，镜像标签为提交号，再由 CDK 更新现有服务和前端 | `buildspec.yml` 按 `IMAGE_TAG` 推送 `linux/amd64` 并只部署 `GoApiRelease`。工作流把 `GITHUB_SHA` 传给 `IMAGE_TAG`。`npm test` 5 通过。线上角色策略已写入，本次没有部署网站 |
+| P4.6 | Phase 4 验收 | PENDING | P4.5 | 验证 | 0 | 一次 `main` 推送跑通流水线；CloudFront 增删改查、`/health`、`/report` 仍通过；仓库无长期密钥 | - |
 | P5 | Phase 5 PR 预览环境 | PENDING | P4 | 主控 | 0 | PR 独立环境，关闭后清理 | - |
 | P6 | Phase 6 灰度与回滚 | PENDING | P5 | 主控 | 0 | Lambda 10% Canary，ECS 蓝绿，告警可回滚 | - |
+| T1 | 任务代办 | DONE | T1.3 | 主控 | 0 | 本地可把待办交给指定用户，并完成筛选、改派、完成和删除 | 2026-11-11 本地页面走通。未部署 |
+| T1.1 | Go 待办接口与迁移 | DONE | - | 开发 | 0 | 迁移创建 `tasks`；指定用户可增删改查；用户不存在为 404；有待办时删除用户为 409 | `002_create_tasks.sql`、`003_index_tasks_assignee.sql`。路由测试与 `TestTaskRepositoryCRUD` 通过 |
+| T1.2 | 前端待办区 | DONE | - | 开发 | 0 | 页面可指定用户添加、筛选、改派、完成和删除；`/tasks` 走本地代理 | `frontend/src/Tasks.tsx`，Vite 代理 `/tasks` |
+| T1.3 | 任务代办本地验收 | DONE | T1.1, T1.2 | 验证 | 0 | `go test ./...` 通过；`npm run build` 通过；不部署 | 2026-11-11 路由测试、数据库测试和 `npm run build` 通过。页面验收后删掉了临时用户和待办 |
 
 ## Phase 3 规格
 
@@ -121,7 +133,7 @@ P2（已完成）
 
 ## Phase 4 规格
 
-2026-11-09 草案，尚未确认。确认前不初始化 Git、不创建 AWS 资源、不把 P4 改为 `READY`。
+2026-11-10 确认。用户要求继续 Phase 4，远程已是 `https://github.com/webmapLee/aws-demo`，分支 `main`，最新提交 `9343a12`。
 
 目标：默认分支收到一次提交后，自动跑 Go 测试和前端类型检查，构建并推送不可变镜像，再用 CDK 更新当前学习环境。身份用 GitHub OIDC 临时凭证，仓库和 GitHub Secrets 里不放长期访问密钥。
 
@@ -144,15 +156,93 @@ P2（已完成）
 
 不包含：PR 预览环境、Lambda Canary、ECS 蓝绿、自定义域名、NAT、第二套数据库、把用户 CRUD 搬进 Lambda。这些分别留在 Phase 5 和 Phase 6。
 
-待确认：
+已锁定的四项：
 
-1. GitHub 所有者和仓库名。当前目录还不是 Git 仓库，也没有远程。
-2. CDK 接管方式：导入并管理现有学习环境，或本阶段只创建 OIDC、部署角色和 CodeBuild，应用资源仍由现有 CLI 资源承担。
-3. 前端检查是否接受 `npm run build`，不在本阶段新加测试框架。
-4. 默认分支名用 `main`。
+1. 仓库 `webmapLee/aws-demo`。
+2. CDK 新建 OIDC、部署角色、CodeBuild，并发布新镜像、前端和 Lambda 代码。现有 RDS、ALB、CloudFront、WAF 继续留在原 CLI 资源上，不导入 CloudFormation，避免替换数据库或断开入口。
+3. 前端检查使用现有 `npm run build`。
+4. 默认分支是 `main`。OIDC 信任条件只允许 `repo:webmapLee/aws-demo:ref:refs/heads/main`。PR 信任留到 Phase 5。
+
+2026-11-11 补充：GitHub OIDC 和 CodeBuild 建在 `235494787236`。`357278306946` 不创建 OIDC 提供方，只保留部署角色 `go-api-github-deploy`，信任 `arn:aws:iam::235494787236:role/go-api-codebuild`。现有网站、数据库和 CloudFront 仍留在 `357278306946`。
+
+## Phase 4 执行计划
+
+创建前按名称查询。OIDC 提供方、角色 `go-api-github-deploy`、CodeBuild 项目 `go-api-ci`、CDK 栈已存在则更新，不重复创建。镜像继续推到 ECR `go-api`，架构 `linux/amd64`。期望任务数保持 1。
+
+依赖与并行：
+
+```text
+P3（已完成）
+├─ P4.1 CDK 流水线栈代码 ── P4.2 应用发布栈代码
+│                      └─ P4.4 部署流水线栈
+└─ P4.3 GitHub Actions
+                              \        /
+                               P4.5 构建并发布
+                                    |
+                               P4.6 验收
+                                    |
+                               P4 阶段任务
+```
+
+| 分组 | 任务 | 说明 |
+| --- | --- | --- |
+| A | P4.1、P4.3 | 只改本地代码，可同时做 |
+| B | P4.2 | 等 CDK 工程存在后再加发布栈 |
+| C | P4.4 | 等用户确认计划后部署，先看 diff |
+| D | P4.5 | 等角色、CodeBuild 和工作流都就绪 |
+| E | P4.6 | 对照验收标准，不改业务代码 |
+
+P4.4 的 diff 若出现替换 RDS、删除 S3 桶、更换 CloudFront 或 WAF，立即停止。新增费用主要是 CodeBuild 构建分钟数；OIDC 和 IAM 角色本身不收费。
+
+## 任务代办规格
+
+2026-11-11 确认。Phase 4 的 P4.6 保持 `PENDING`，不因本功能推送或部署。
+
+目标：在现有用户名册上增加待办。创建待办时必须指定一名已经存在的用户，页面可以按这个用户查看、改派、完成和删除。
+
+数据：新增迁移 `002_create_tasks.sql`。`tasks` 含 `id`、`title`（1 到 200 字）、`assignee_id`（必填，外键指向 `users.id`）、`done`（默认 false）、`created_at`。服务启动时沿用现有迁移表自动执行。不改 `users` 表，也不改 `/report`。
+
+接口，与用户接口同一套 Go 服务：
+
+- `POST /tasks`：正文 `{ "title", "assignee_id" }`，用户不存在返回 404。
+- `GET /tasks`：列表，可用 `assignee_id` 筛选，`limit` 最大 100。响应带负责人的 `id`、`name`、`email`。
+- `GET /tasks/:id`、`PUT /tasks/:id`、`DELETE /tasks/:id`：更新可改标题、负责人和完成状态。
+- 删除仍有待办的用户返回 409，待办保留。不级联删除。
+
+页面：现有用户页增加待办区。可填写标题并从名册选择负责人，列表显示负责人姓名，可按用户筛选、标记完成、改派和删除。本地 Vite 把 `/tasks` 转发到 Go。用户增删改查保持可用。
+
+验收：本地能创建一条指定用户的待办，按该用户筛出，改完成状态和负责人，再删除。指定不存在的用户被拒绝。该用户仍有待办时，删除用户被拒绝。`go test` 覆盖路由；有 `DATABASE_URL` 时跑迁移和查询。前端 `npm run build` 通过。
+
+本次不做：登录和「当前用户」、截止日期、优先级、评论、改 CloudFront、推送 `main`、部署。线上分配目前只把 `/users*` 和 `/health` 转到 ALB，`/tasks` 在生产会落到 S3。上线留到本功能本地验收之后，单独确认。
+
+## 任务代办执行计划
+
+用户已确认规格并要求开始本地开发。不创建或修改 AWS 资源。
+
+```text
+T1.1 Go 待办接口与迁移
+T1.2 前端待办区
+        \        /
+         T1.3 验收
+              |
+         T1 任务代办
+```
+
+| 分组 | 任务 | 说明 |
+| --- | --- | --- |
+| A | T1.1、T1.2 | 接口形状已在规格里定死，后端和页面可以同时做 |
+| B | T1.3 | 对照验收标准，不改业务代码 |
 
 ## 调度记录
 
+- 2026-11-11 任务代办本地验收通过。未改 CloudFront，未推送，未部署。P4.6 仍是 `PENDING`。
+- 2026-11-11 用户确认任务代办规格。T1.1、T1.2 开始。不推送，不部署。
+- 2026-11-11 收到任务代办需求。规格已写入，等待确认。未改代码，P4.6 仍是 `PENDING`。
+- 2026-11-11 P4.5 通过。构建脚本和角色权限已就绪，会话停在推送前。P4.6 仍是 `PENDING`。
+- 2026-11-11 P4.8 通过。本机 `s3 cp` 到引导桶建连超时，控制面可用，所以用 CLI 创建源码桶、CodeBuild 和两个角色。凭证配置名是 `oidc`，身份是 `235494787236` 的 root。下一任务 P4.5。
+- 2026-11-11 用户确认 OIDC 放在 `235494787236`。P4.7 通过。P4.8 等待该账号的凭证。
+- 2026-11-10 P4.1、P4.2、P4.3 通过。P4.4 在部署前被 SCP 挡住，会话暂停。
+- 2026-11-10 确认 Phase 4 规格并写入执行计划。任务保持 `PENDING`，等用户说「开始」。
 - 2026-11-09 写出 Phase 4 规格草案。会话保持暂停，任务仍是 `PENDING`。
 - 2026-11-09 P3.7 和阶段验收通过。页面完成增删改查，`/report` 用户数回到 1。会话暂停在 Phase 4 规格确认前。
 - 2026-11-09 P3.6 通过。Web ACL 只写在分配上。带脚本的查询返回 403，普通页面返回 200。开始 P3.7。

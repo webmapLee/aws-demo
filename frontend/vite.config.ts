@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/users': target,
+        '/tasks': target,
         '/health': target,
       },
     },

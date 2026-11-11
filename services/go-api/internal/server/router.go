@@ -7,7 +7,7 @@ import (
 	"aws-go/services/go-api/internal/service"
 )
 
-func NewRouter(users *service.UserService, db handler.Pinger) *gin.Engine {
+func NewRouter(users *service.UserService, tasks *service.TaskService, db handler.Pinger) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
@@ -19,6 +19,13 @@ func NewRouter(users *service.UserService, db handler.Pinger) *gin.Engine {
 	router.GET("/users/:id", userHandler.Get)
 	router.PUT("/users/:id", userHandler.Update)
 	router.DELETE("/users/:id", userHandler.Delete)
+
+	taskHandler := handler.NewTaskHandler(tasks)
+	router.POST("/tasks", taskHandler.Create)
+	router.GET("/tasks", taskHandler.List)
+	router.GET("/tasks/:id", taskHandler.Get)
+	router.PUT("/tasks/:id", taskHandler.Update)
+	router.DELETE("/tasks/:id", taskHandler.Delete)
 
 	return router
 }

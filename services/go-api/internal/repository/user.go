@@ -14,6 +14,7 @@ import (
 var (
 	ErrNotFound = errors.New("user not found")
 	ErrConflict = errors.New("email already exists")
+	ErrHasTasks = errors.New("user has tasks")
 )
 
 type UserRepository struct {
@@ -102,6 +103,9 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 
 func (r *UserRepository) Delete(ctx context.Context, id int64) error {
 	result, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if isForeignKeyViolation(err) {
+		return ErrHasTasks
+	}
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
@@ -118,4 +122,9 @@ func (r *UserRepository) Delete(ctx context.Context, id int64) error {
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }

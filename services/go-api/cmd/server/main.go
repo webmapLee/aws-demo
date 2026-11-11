@@ -36,9 +36,10 @@ func run() error {
 	defer db.Close()
 
 	userSvc := service.NewUserService(repository.NewUserRepository(db))
+	taskSvc := service.NewTaskService(repository.NewTaskRepository(db))
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.NewRouter(userSvc, db),
+		Handler:           server.NewRouter(userSvc, taskSvc, db),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,

@@ -50,7 +50,7 @@ npm install
 npm run dev
 ```
 
-开发服务器默认是 `http://localhost:5173`，并把 `/users` 和 `/health` 转发到 `API_PROXY`。本机 API 在 8081 时，`frontend/.env` 写 `API_PROXY=http://localhost:8081`。页面可以登记、修改和删除用户。
+开发服务器默认是 `http://localhost:5173`，并把 `/users`、`/tasks` 和 `/health` 转发到 `API_PROXY`。本机 API 在 8081 时，`frontend/.env` 写 `API_PROXY=http://localhost:8081`。页面可以登记用户，并把待办交给其中一个人。
 
 ## 测试
 
@@ -71,6 +71,11 @@ DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable go test ./...
 | GET | `/users` | 用户列表，`limit` 最大 100 |
 | GET | `/users/:id` | 用户详情 |
 | PUT | `/users/:id` | 更新姓名和邮箱 |
-| DELETE | `/users/:id` | 删除用户 |
+| DELETE | `/users/:id` | 删除用户。此人还有待办时返回 409 |
+| POST | `/tasks` | 创建待办，正文含 `title` 和 `assignee_id` |
+| GET | `/tasks` | 待办列表，可用 `assignee_id` 筛选，`limit` 最大 100 |
+| GET | `/tasks/:id` | 待办详情，含负责人姓名和邮箱 |
+| PUT | `/tasks/:id` | 更新标题、负责人和完成状态 |
+| DELETE | `/tasks/:id` | 删除待办 |
 
-重复邮箱返回 409。邮箱会转成小写后保存。
+重复邮箱返回 409。邮箱会转成小写后保存。标题为 1 到 200 个字符。指定不存在的用户返回 404。

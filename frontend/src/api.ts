@@ -1,4 +1,4 @@
-import type { User, UserInput } from './types'
+import type { Task, TaskInput, TaskUpdate, User, UserInput } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -58,6 +58,29 @@ export function deleteUser(id: number): Promise<void> {
   return request<void>(`/users/${id}`, { method: 'DELETE' })
 }
 
+export function listTasks(assigneeId?: number): Promise<Task[]> {
+  const query = assigneeId ? `?assignee_id=${assigneeId}` : ''
+  return request<Task[]>(`/tasks${query}`)
+}
+
+export function createTask(input: TaskInput): Promise<Task> {
+  return request<Task>('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateTask(id: number, input: TaskUpdate): Promise<Task> {
+  return request<Task>(`/tasks/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteTask(id: number): Promise<void> {
+  return request<void>(`/tasks/${id}`, { method: 'DELETE' })
+}
+
 export async function checkHealth(): Promise<'ok' | 'down'> {
   try {
     const response = await fetch('/health')
@@ -75,5 +98,10 @@ export function explainError(error: unknown): string {
   if (raw.includes('email is invalid')) return '邮箱格式不正确'
   if (raw.includes('name must be')) return '姓名需要 1 到 100 个字符'
   if (raw.includes('user not found')) return '这条记录已经不在名册里'
+  if (raw.includes('user has tasks')) return '这个用户还有待办，请先改派或删除'
+  if (raw.includes('title must be')) return '标题需要 1 到 200 个字符'
+  if (raw.includes('assignee not found')) return '负责人不在名册里'
+  if (raw.includes('assignee is invalid')) return '请选择负责人'
+  if (raw.includes('task not found')) return '这条待办已经不在'
   return raw
 }

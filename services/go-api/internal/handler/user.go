@@ -116,6 +116,8 @@ func writeUserError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 	case errors.Is(err, repository.ErrConflict):
 		c.JSON(http.StatusConflict, gin.H{"error": "email already exists"})
+	case errors.Is(err, repository.ErrHasTasks):
+		c.JSON(http.StatusConflict, gin.H{"error": "user has tasks"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 	}

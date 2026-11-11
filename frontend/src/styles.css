@@ -28,7 +28,7 @@ body {
     linear-gradient(180deg, #f4eee3 0%, var(--paper) 42%, var(--paper-deep) 100%);
 }
 
-button, input { font: inherit; color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 
 button {
   min-height: 44px;
@@ -40,7 +40,8 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--copper);
   outline-offset: 3px;
 }
@@ -151,7 +152,12 @@ button:disabled { cursor: progress; opacity: 0.7; }
 }
 
 .toolbar input,
-.panel input {
+.toolbar select,
+.panel input,
+.panel select,
+.task-form input,
+.task-form select,
+.dialog select {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -159,7 +165,8 @@ button:disabled { cursor: progress; opacity: 0.7; }
   background: rgba(255, 252, 247, 0.8);
 }
 
-.toolbar input {
+.toolbar input,
+.toolbar select {
   flex: 1 1 180px;
   width: auto;
   max-width: 360px;
@@ -204,6 +211,7 @@ th {
 }
 
 td:first-child { font-weight: 700; }
+.is-done { color: var(--muted); text-decoration: line-through; font-weight: 500; }
 .email { font-variant-numeric: tabular-nums; }
 
 .actions { display: flex; gap: 8px; white-space: nowrap; }
@@ -262,6 +270,35 @@ td:first-child { font-weight: 700; }
 
 .dialog p { margin-top: 0; }
 
+.tasks {
+  margin-top: 56px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ink);
+}
+
+.tasks .count { font-size: 48px; }
+
+.task-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 22px 0 8px;
+}
+
+.task-form label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 180px;
+  color: var(--muted);
+}
+
+.task-form button { margin-bottom: 0; }
+
+.dialog label { display: block; margin: 0 0 6px; }
+
+.dialog select { width: 100%; margin-bottom: 8px; }
+
 @keyframes enter {
   from { transform: translateY(8px); opacity: 0; }
   to { transform: none; opacity: 1; }
@@ -276,6 +313,8 @@ td:first-child { font-weight: 700; }
   .count { font-size: 52px; }
   .table-wrap { display: none; }
   .cards { display: grid; }
+  .task-form { display: grid; }
+  .tasks .count { font-size: 40px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
